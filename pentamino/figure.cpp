@@ -61,20 +61,6 @@ public:
 	IND Width() const {return _w;}
 	IND Height() const {return _h;}
 
-	void Draw(DC* pDC, Brush* brushes, int x0, int y0) const {
-		int y = y0;
-		for (IND j=0; j<_h; j++) {
-			int x = x0;
-			for (IND i=0; i<_w; i++) {
-				Select sb(pDC, brushes[Get(i, j)]);
-				pDC->Rect(x, y, x + pix + 1, y + pix + 1);
-				x += pix;
-			}
-			y += pix;
-		}
-	}
-
-
 private:
 	IND _data[_h][_w];
 };
@@ -94,24 +80,14 @@ public:
 	}
 
 	void Rotate() {
-		IND x1, y1, temp;
-		x1 = y1 = piece_count;
+		IND temp = _w;
+		_w = _h;
+		_h = temp;
 
 		for (IND n=0; n<piece_count; n++) {
 			auto& pt = _data[n];
-			temp = pt.x, pt.x = -pt.y, pt.y = temp;
-			if (x1 > pt.x)
-				x1 = pt.x;
-			if (y1 > pt.y)
-				y1 = pt.y;
+			temp = pt.x, pt.x = -pt.y + _w, pt.y = temp;
 		}
-
-		for (IND n=0; n<piece_count; n++)
-			_data[n].x -= x1, _data[n].y -= y1;
-
-		temp = _w;
-		_w = _h;
-		_h = temp;
 	}
 
 	void Mirror() {
@@ -193,7 +169,8 @@ public:
 		for (IND k=0; k<_index.Count(); k++) {
 			IND x = _index.Get(k);
 			Piece piece(x);
-			{//for (char mir=0; mir<mirs[x]; mir++) {
+			IND nm = 1;//mirs[x];
+			for (char mir=0; mir<nm; mir++) {
 				for (char rot=0; rot<rots[x]; rot++) {
 					for (IND n=0; n<piece_count; n++) {
 						if (piece.Fit(_field, _hole, n)) {
@@ -210,7 +187,7 @@ public:
 					}
 					piece.Rotate();
 				}
-				//piece.Mirror();
+				piece.Mirror();
 			}
 		}
 
@@ -246,12 +223,25 @@ protected:
 
 Solution sol;
 
-void solve() {	
+static void solve() {	
 	Elapsed el;
 	Context cntx{sol};
 	Figure fig;
 	fig.Solve(cntx);
 	auto sec = el.sec();
+}
+
+static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) {
+	int y = y0;
+	for (IND j=0; j<f.Height(); j++) {
+		int x = x0;
+		for (IND i=0; i<f.Width(); i++) {
+			Select sb(pDC, brushes[f.Get(i, j)]);
+			pDC->Rect(x, y, x + pix + 1, y + pix + 1);
+			x += pix;
+		}
+		y += pix;
+	}
 }
 
 MainWnd::MainWnd() {
@@ -281,11 +271,10 @@ bool MainWnd::OnPaint(DC* pDC) {
 
 	int n = 0, y = pix;
 	bool done = false;
-	for (int j=0; !done; j++) {
+	for (int j=0; !done && y<h; j++) {
 		int x = pix;
 		for (int i=0; !done && i<nx; i++) {
-			Field const& f = sol[n];
-			f.Draw(pDC, _brushes, x, y);
+			draw_field(sol[n], pDC, _brushes, x, y);
 			x += w1;
 			if (++n == sol.size())
 				done = true;
