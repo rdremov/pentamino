@@ -2,7 +2,6 @@
 
 #include "gdi.h"
 #include "elapsed.h"
-#include <vector>
 
 class MainWnd : public Wnd {
 public:

@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "figure.h"
+#include <thread>
+#include <vector>
 
 typedef char IND;
 struct PT {IND x, y;};
@@ -31,20 +33,27 @@ static const char mirs[figure_count] = {
 	1, 1, 2, 2, 1, 1, 2, 1, 2, 1, 2, 2
 };
 
-static const Color colors[figure_count+1] = {
-	{0xcc, 0xff, 0xcc},
-	{0xff, 0xcc, 0x33},
-	{0xcc, 0x99, 0xff},
-	{0xcc, 0x66, 0x99},
-	{0xff, 0x66, 0x33},
-	{0x99, 0x66, 0xcc},
-	{0x33, 0x66, 0x99},
-	{0x00, 0xcc, 0xff},
-	{0xcc, 0xff, 0xff},
-	{0x33, 0xff, 0x33},
-	{0xff, 0x33, 0x33},
-	{0x66, 0x66, 0x66},
-	{0xd0, 0xd0, 0xd0}, // vacant
+static const Color colors[] = {
+	{0x80, 0x00, 0x00}, // maroon
+	{0x9a, 0x63, 0x24}, // brown
+	{0x80, 0x80, 0x00}, // olive
+	{0x46, 0x99, 0x90}, // teal
+	{0x00, 0x00, 0x75}, // navy
+	{0xe6, 0x19, 0x48}, // red
+	{0xf5, 0x82, 0x31}, // orange
+	{0xff, 0xe1, 0x19}, // yellow
+	{0xbf, 0xef, 0x45}, // lime
+	{0x3c, 0xb4, 0x4b}, // green
+	{0x42, 0xd4, 0xf4}, // cyan
+	{0x43, 0x63, 0xd8}, // blue
+	{0x91, 0x1e, 0xb4}, // purple
+	{0xf0, 0x32, 0xe6}, // magenta
+	{0xa9, 0xa9, 0xa9}, // grey
+	{0xfa, 0xbe, 0xbe}, // pink
+	{0xff, 0xd8, 0xb1}, // apricot
+	{0xff, 0xfa, 0xc8}, // beige
+	{0xaa, 0xff, 0xc3}, // mint
+	{0xe6, 0xbe, 0xff}, // lavender
 };
 
 class Field {
@@ -167,23 +176,27 @@ public:
 	void Solve(Context& cntx) {
 		cntx.dbgcount++;
 		for (IND k=0; k<_index.Count(); k++)
-			SolveK(cntx, k);
+			Solve1(cntx, k);
 	}
 
-	/*void SolveOMP(Context& cntx) {
-		static Solution tsol;
-		#pragma omp threadprivate(tsol)
+	void SolveMT(Context& cntx) {
+		struct ThreadContext{
+			std::thread th;
+			Solution sol;
+			Context cntx;
+			ThreadContext() : cntx{sol} {}
+		};
 
-		static Context tcntx{tsol};
-		#pragma omp threadprivate(tcntx)
+		ThreadContext tcs[figure_count];
+		//for (IND k=0; k<_index.Count(); k++)
+		//	tcs[k].th = thread(Solve1, k + 1);
 
-		#pragma omp parallel for
-		for (IND k=0; k<_index.Count(); k++)
-			SolveK(tcntx, k);
-	}*/
+		for (auto& tc : tcs)
+			tc.th.join();
+	}
 
 protected:
-	void SolveK(Context& cntx, IND k) {
+	void Solve1(Context& cntx, IND k) {
 		IND x = _index.Get(k);
 		Piece piece(x);
 		IND nm = 1;//mirs[x];
@@ -238,6 +251,9 @@ static void solve() {
 	Figure fig;
 	fig.Solve(cntx);
 	auto sec = el.sec();
+	printf("elepased = %g sec\n", sec);
+	printf("dbgcount = %d\n", cntx.dbgcount);
+	printf("solutions = %d\n", sol.size());
 }
 
 static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) {
@@ -256,8 +272,9 @@ static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) 
 MainWnd::MainWnd() {
 	solve();
 	_brushes = new Brush[figure_count+1];
-	for (int i=0; i<=figure_count; i++)
+	for (int i=0; i<figure_count; i++)
 		_brushes[i].Create(colors[i]);
+	_brushes[figure_count].Create(Color(0xff, 0xff, 0xff));
 }
 
 MainWnd::~MainWnd() {
