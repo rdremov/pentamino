@@ -40,6 +40,13 @@ public:
 	void Update() {UpdateWindow(_h);}
 	void Invalidate(bool eraseBk = true) {InvalidateRect(_h, nullptr, eraseBk);}
 
+	void GetSize(int& w, int& h) const {
+		RECT r{};
+		GetClientRect(_h, &r);
+		w = r.right - r.left;
+		h = r.bottom - r.top;
+	}
+
 	virtual bool OnPaint(DC* pDC) {return true;}
 	virtual bool OnKeyDown(Key key) {return true;}
 	virtual bool OnKeyUp(Key key) {return true;}

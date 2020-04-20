@@ -1,23 +1,34 @@
 #include "stdafx.h"
 #include "figure.h"
 
-const int w1 = 40;
-static const char piece_count = 5;
-static const char figure_count = 12;
+typedef char IND;
+struct PT {IND x, y;};
 
-static const char figures[figure_count][piece_count][2] = {
-	0,0, 2,0, 0,1, 1,1, 2,1,
-	1,0, 0,1, 1,1, 2,1, 1,2,
-	1,0, 0,1, 1,1, 0,2, 1,2,
-	1,0, 0,1, 1,1, 1,2, 2,2,
-	0,0, 0,1, 0,2, 0,3, 0,4,
-	0,0, 1,0, 2,0, 1,1, 1,2,
-	1,0, 2,0, 3,0, 0,1, 1,1,
-	1,0, 2,0, 0,1, 1,1, 0,2,
-	0,0, 1,0, 1,1, 1,2, 2,2,
-	2,0, 2,1, 0,2, 1,2, 2,2,
-	0,0, 0,1, 1,1, 2,1, 3,1,
-	2,0, 0,1, 1,1, 2,1, 3,1,
+static const int pix = 15;
+static const IND piece_count = 5;
+static const IND figure_count = 12;
+
+static const PT figures[figure_count][piece_count] = {
+	0,0, 2,0, 0,1, 1,1, 2,1, // c
+	1,0, 0,1, 1,1, 2,1, 1,2, // +
+	1,0, 0,1, 1,1, 0,2, 1,2, // p
+	1,0, 0,1, 1,1, 1,2, 2,2, // t
+	0,0, 0,1, 0,2, 0,3, 0,4, // I
+	0,0, 1,0, 2,0, 1,1, 1,2, // T
+	1,0, 2,0, 3,0, 0,1, 1,1, // 4
+	1,0, 2,0, 0,1, 1,1, 0,2, // W
+	0,0, 1,0, 1,1, 1,2, 2,2, // Z
+	2,0, 2,1, 0,2, 1,2, 2,2, // L
+	0,0, 0,1, 1,1, 2,1, 3,1, // J
+	2,0, 0,1, 1,1, 2,1, 3,1, // h
+};
+
+static const char rots[figure_count] = {
+	4, 1, 4, 4, 2, 4, 4, 4, 2, 4, 4, 4
+};
+
+static const char mirs[figure_count] = {
+	1, 1, 2, 2, 1, 1, 2, 1, 2, 1, 2, 2
 };
 
 static const Color colors[figure_count+1] = {
@@ -33,146 +44,254 @@ static const Color colors[figure_count+1] = {
 	{0x33, 0xff, 0x33},
 	{0xff, 0x33, 0x33},
 	{0x66, 0x66, 0x66},
-	{0xc0, 0xc0, 0xc0}, // vacant
+	{0xd0, 0xd0, 0xd0}, // vacant
+};
+
+class Field {
+	static const IND _w = 10;
+	static const IND _h = 6;
+
+public:
+	Field(IND v=figure_count) {memset(_data, v, sizeof(Field));}
+	Field(const Field& f) {memcpy(_data, f._data, sizeof(Field));}
+	bool IsOutside(IND x, IND y) const {return x < 0 || x >= _w || y < 0 || y >= _h;}
+	bool IsEmpty(IND x, IND y) const {return _data[y][x] == figure_count;}
+	void Set(IND x, IND y, IND v) {_data[y][x] = v;}
+	IND	Get(IND x, IND y) const {return _data[y][x];}
+	IND Width() const {return _w;}
+	IND Height() const {return _h;}
+
+	void Draw(DC* pDC, Brush* brushes, int x0, int y0) const {
+		int y = y0;
+		for (IND j=0; j<_h; j++) {
+			int x = x0;
+			for (IND i=0; i<_w; i++) {
+				Select sb(pDC, brushes[Get(i, j)]);
+				pDC->Rect(x, y, x + pix + 1, y + pix + 1);
+				x += pix;
+			}
+			y += pix;
+		}
+	}
+
+
+private:
+	IND _data[_h][_w];
 };
 
 class Piece {
 public:
-	Piece(char index) : _color(colors[index]) {
-		memcpy(_data, figures[index], sizeof(_data));
-		Update();
+	Piece(IND k) : _w(0), _h(0), _color(k) {
+		memcpy(_data, figures[k], sizeof(_data));
+		for (IND n=0; n<piece_count; n++) {
+			auto pt = _data[n];
+			if (_w < pt.x)
+				_w = pt.x;
+			if (_h < pt.y)
+				_h = pt.y;
+		}
+		_w++, _h++;
 	}
 
 	void Rotate() {
-		for (char n=0; n<piece_count; n++) {
-			char temp = _data[n][0];
-			_data[n][0] = -_data[n][1];
-			_data[n][1] = temp;
-		}
-		Update();
-	}
-
-	void Update() {
-		char x1, y1, x2, y2;
+		IND x1, y1, temp;
 		x1 = y1 = piece_count;
-		x2 = y2 = 0;
 
-		for (char n=0; n<piece_count; n++) {
-			if (x1 > _data[n][0]) x1 = _data[n][0];
-			if (x2 < _data[n][0]) x2 = _data[n][0];
-			if (y1 > _data[n][1]) y1 = _data[n][1];
-			if (y2 < _data[n][1]) y2 = _data[n][1];
+		for (IND n=0; n<piece_count; n++) {
+			auto& pt = _data[n];
+			temp = pt.x, pt.x = -pt.y, pt.y = temp;
+			if (x1 > pt.x)
+				x1 = pt.x;
+			if (y1 > pt.y)
+				y1 = pt.y;
 		}
 
-		for (char n=0; n<piece_count; n++) {
-			_data[n][0] -= x1;
-			_data[n][1] -= y1;
-		}
+		for (IND n=0; n<piece_count; n++)
+			_data[n].x -= x1, _data[n].y -= y1;
 
-		_w = x2 - x1 + 1;
-		_h = y2 - y1 + 1;
+		temp = _w;
+		_w = _h;
+		_h = temp;
 	}
 
-	char _w, _h;
-	char _data[piece_count][2];
-	Color _color;
+	void Mirror() {
+		for (IND n=0; n<piece_count; n++)
+			_data[n].x = -_data[n].x + _w - 1;
+	}
+
+	bool Fit(const Field& f, PT pt, IND index) const {
+		IND dx = pt.x - _data[index].x;
+		IND dy = pt.y - _data[index].y;
+		for (IND n=0; n<piece_count; n++) {
+			IND x = _data[n].x + dx, y = _data[n].y + dy;
+			if (f.IsOutside(x, y))
+				return false;
+			if (!f.IsEmpty(x, y)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	void Mark(Field& f, PT pt, IND index) const {
+		IND dx = pt.x - _data[index].x;
+		IND dy = pt.y - _data[index].y;
+		for (IND n=0; n<piece_count; n++)
+			f.Set(_data[n].x + dx, _data[n].y + dy, _color);
+	}
+
+private:
+	IND _w, _h;
+	IND _color;
+	PT _data[piece_count];
 };
 
-typedef char Field[6][10];
+typedef std::vector<Field> Solution;
 
 struct Context {
-	DC* pDC;
-	Brush* brushes;
-	int index;
-	int count;
-	Field solution;
+	Solution& sol;
+	int dbgcount;
+};
 
-	void Draw(Field const& field) {
-		int y = w1;
-		for (char j=0; j<6; j++) {
-			int x = w1;
-			for (char i=0; i<10; i++) {
-				Select sb(pDC, brushes[field[j][i]]);
-				pDC->Rect(x, y, x + w1 + 1, y + w1 + 1);
-				x += w1;
-			}
-			y += w1;
-		}
+class Index {
+	IND _count;
+	IND _data[figure_count];
+
+public:
+	Index() : _count(figure_count) {
+		for (IND k=0; k<_count; k++)
+			_data[k] = k;
 	}
+
+	Index(const Index& index, IND skip) : _count(index._count - 1) {
+		for (IND k=0; k<skip; k++)
+			_data[k] = index._data[k];
+		for (IND k=skip; k<_count; k++)
+			_data[k] = index._data[k+1];
+	}
+
+	IND Count() const {return _count;}
+	IND Get(IND k) const {return _data[k];}
 };
 
 class Figure {
-	Field _data;
+	Field _field;
+	PT _hole;
+	Index _index;
 
 public:
-	Figure() {
-		for (char j=0; j<6; j++) {
-			for (char i=0; i<10; i++)
-				_data[j][i] = figure_count;
-		}
-	}
-
-	Figure(const Field& data) {
-		memcpy(_data, data, sizeof(Field));
+	Figure() : _hole{} {}
+	Figure(const Figure* p, IND skip)
+		:	_field(p->_field),
+			_hole{},
+			_index(p->_index, skip) {
 	}
 
 	bool Solve(Context& cntx) {
-		cntx.Draw(_data);
+		cntx.dbgcount++;
 
-		if (cntx.index == figure_count) {
-			memcpy(cntx.solution, _data, sizeof(Field));
-			return true;
-		}
-
-		Piece piece(cntx.index);
-
-		for (char rot=0; rot<4; rot++) {
-			int cj = 6 - piece._h + 1;
-			int ci = 10 - piece._w + 1;
-			for (char j=0; j<cj; j++) {
-				for (char i=0; i<ci; i++) {
-					if (_data[j][i] == figure_count) {
-						bool fit = true;
-						for (char n=0; n<piece_count; n++) {
-							if (_data[piece._data[n][1]+j][piece._data[n][0]+i] != figure_count) {
-								fit = false;
-								break;
-							}
-						}
-						if (fit) {
-							cntx.count++;
-							Figure figure(_data);
-							for (char n=0; n<piece_count; n++)
-								figure._data[piece._data[n][1]+j][piece._data[n][0]+i] = cntx.index;
-							cntx.index++;
-							bool res = figure.Solve(cntx);
-							cntx.index--;
-							if (res)
-								return true;
+		for (IND k=0; k<_index.Count(); k++) {
+			IND x = _index.Get(k);
+			Piece piece(x);
+			{//for (char mir=0; mir<mirs[x]; mir++) {
+				for (char rot=0; rot<rots[x]; rot++) {
+					for (IND n=0; n<piece_count; n++) {
+						if (piece.Fit(_field, _hole, n)) {
+							Figure fig(this, k);
+							piece.Mark(fig._field, _hole, n);
+							if (fig.IsDone(cntx))
+								break;//return true;
+							Field visit;
+							if (fig.Hole(visit, _hole.x, _hole.y)) {
+								if (fig.Solve(cntx))
+									return true;
+							 }
 						}
 					}
+					piece.Rotate();
 				}
+				//piece.Mirror();
 			}
-			piece.Rotate();
 		}
 
 		return false;
 	}
+
+protected:
+	bool IsDone(Context& cntx) {
+		if (_index.Count() )
+			return false;
+		cntx.sol.push_back(_field);
+		return true;
+	}
+
+	bool Hole(Field& visit, IND x, IND y) {
+		if (_field.IsOutside(x, y))
+			return false;
+		if (!visit.IsEmpty(x, y))
+			return false;
+		if (_field.IsEmpty(x, y))
+		{
+			_hole = {x, y};
+			return true;
+		}
+		visit.Set(x, y, 0);
+		return
+			Hole(visit, x, y-1) ||
+			Hole(visit, x-1, y) ||
+			Hole(visit, x, y+1) ||
+			Hole(visit, x+1, y);
+	}
 };
 
+Solution sol;
+
+void solve() {	
+	Elapsed el;
+	Context cntx{sol};
+	Figure fig;
+	fig.Solve(cntx);
+	auto sec = el.sec();
+}
+
+MainWnd::MainWnd() {
+	solve();
+	_brushes = new Brush[figure_count+1];
+	for (int i=0; i<=figure_count; i++)
+		_brushes[i].Create(colors[i]);
+}
+
+MainWnd::~MainWnd() {
+	delete[] _brushes;
+}
+
 bool MainWnd::OnPaint(DC* pDC) {
-	Pen pen(2);
+	if (sol.empty())
+		return false;
+
+	int w, h;
+	GetSize(w, h);
+
+	int w1 = (1 + sol[0].Width()) * pix;
+	int h1 = (1 + sol[0].Height()) * pix;
+	int nx = w / w1;
+
+	Pen pen(1);
 	Select sp(pDC, pen);
 
-	Brush brushes[figure_count+1];
-	for (int i=0; i<=figure_count; i++)
-		brushes[i].Create(colors[i]);
-
-	Context cntx{pDC, brushes};
-
-	Figure fig;
-	if (fig.Solve(cntx))
-		cntx.Draw(cntx.solution);
+	int n = 0, y = pix;
+	bool done = false;
+	for (int j=0; !done; j++) {
+		int x = pix;
+		for (int i=0; !done && i<nx; i++) {
+			Field const& f = sol[n];
+			f.Draw(pDC, _brushes, x, y);
+			x += w1;
+			if (++n == sol.size())
+				done = true;
+		}
+		y += h1;
+	}
 
 	return false;
 }

@@ -65,7 +65,7 @@ class Select {
 	DC* _pDC;
 public:
 	template<class T>
-	Select(DC* pDC, T& obj) : _pDC(pDC) {
+	Select(DC* pDC, T const& obj) : _pDC(pDC) {
 		_hOld = SelectObject(_pDC->_h, obj._h);
 	}
 	~Select() {

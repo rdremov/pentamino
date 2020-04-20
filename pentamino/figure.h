@@ -6,7 +6,9 @@
 
 class MainWnd : public Wnd {
 public:
-	MainWnd() {}
-	~MainWnd() {}
+	MainWnd();
+	~MainWnd();
 	bool OnPaint(DC* pDC) override;
+private:
+	Brush* _brushes;
 };
