@@ -7,7 +7,6 @@ typedef char IND;
 struct PT {IND x, y;};
 
 static const int pix = 15;
-static const bool mt = 0;
 static const bool mirror = 1;
 static const IND piece_count = 5;
 static const IND figure_count = 12;
@@ -242,33 +241,37 @@ struct Frame {
 		:	field(f), index(i, skip), hole{} {}
 
 	void Solve(Context& cntx) {
+		for (IND k=0; k<index.Count(); k++)
+			Solve1(cntx, k);
+	}
+
+	void Solve1(Context& cntx, IND k) {
 		cntx.dbgcnt++;
-		for (IND k=0; k<index.Count(); k++) {
-			IND x = index.Get(k);
-			Figure fig(x);
-			IND nm = mirror ? mirs[x] : 1;
-			for (char mir=0; mir<nm; mir++) {
-				for (char rot=0; rot<rots[x]; rot++) {
-					for (IND n=0; n<piece_count; n++) {
-						if (fig.FitIn(field, hole, n)) {
-							Frame fr(this, k);
-							fig.MarkIn(fr.field, hole, n);
-							if (fr.IsDone(cntx))
-								break;
-							HoleFinder hf(fr.field);
-							if (hf.Find(hole.x, hole.y)) {
-								fr.hole = hf.Get();
-								fr.Solve(cntx);
-							}
+		IND x = index.Get(k);
+		Figure fig(x);
+		IND nm = mirror ? mirs[x] : 1;
+		for (char mir=0; mir<nm; mir++) {
+			for (char rot=0; rot<rots[x]; rot++) {
+				for (IND n=0; n<piece_count; n++) {
+					if (fig.FitIn(field, hole, n)) {
+						Frame fr(this, k);
+						fig.MarkIn(fr.field, hole, n);
+						if (fr.IsDone(cntx))
+							break;
+						HoleFinder hf(fr.field);
+						if (hf.Find(hole.x, hole.y)) {
+							fr.hole = hf.Get();
+							fr.Solve(cntx);
 						}
 					}
-					fig.Rotate();
 				}
-				fig.Mirror();
+				fig.Rotate();
 			}
+			fig.Mirror();
 		}
 	}
 
+protected:
 	bool IsDone(Context& cntx) {
 		if (index.Count() )
 			return false;
@@ -287,27 +290,8 @@ TC tcs[figure_count];
 
 static void solve1(IND k) {
 	Context& cntx = tcs[k].cntx;
-	static const Frame fr0;
-
-	Figure fig(k);
-	IND nm = mirror ? mirs[k] : 1;
-	for (char mir=0; mir<nm; mir++) {
-		for (char rot=0; rot<rots[k]; rot++) {
-			for (IND n=0; n<piece_count; n++) {
-				if (fig.FitIn(fr0.field, fr0.hole, n)) {
-					Frame fr(fr0.field, fr0.index, k);
-					fig.MarkIn(fr.field, fr0.hole, n);
-					HoleFinder hf(fr.field);
-					if (hf.Find(fr0.hole.x, fr0.hole.y)) {
-						fr.hole = hf.Get();
-						fr.Solve(cntx);
-					}
-				}
-			}
-			fig.Rotate();
-		}
-		fig.Mirror();
-	}
+	Frame fr0;
+	fr0.Solve1(cntx, k);
 }
 
 static void solveMT() {
@@ -360,10 +344,9 @@ static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) 
 }
 
 MainWnd::MainWnd() {
-	if (mt)
-		solveMT();
-	else
-		solve();
+	solveMT();
+	sol.resize(0);
+	solve();
 	_brushes = new Brush[figure_count+1];
 	for (int i=0; i<figure_count; i++)
 		_brushes[i].Create(colors[i]);
