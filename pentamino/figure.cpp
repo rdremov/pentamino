@@ -123,6 +123,7 @@ private:
 };
 
 typedef std::vector<Field> Solution;
+Solution sol;
 
 struct Context {
 	Solution& sol;
@@ -163,38 +164,48 @@ public:
 			_index(p->_index, skip) {
 	}
 
-	bool Solve(Context& cntx) {
+	void Solve(Context& cntx) {
 		cntx.dbgcount++;
-
-		for (IND k=0; k<_index.Count(); k++) {
-			IND x = _index.Get(k);
-			Piece piece(x);
-			IND nm = 1;//mirs[x];
-			for (char mir=0; mir<nm; mir++) {
-				for (char rot=0; rot<rots[x]; rot++) {
-					for (IND n=0; n<piece_count; n++) {
-						if (piece.Fit(_field, _hole, n)) {
-							Figure fig(this, k);
-							piece.Mark(fig._field, _hole, n);
-							if (fig.IsDone(cntx))
-								break;//return true;
-							Field visit;
-							if (fig.Hole(visit, _hole.x, _hole.y)) {
-								if (fig.Solve(cntx))
-									return true;
-							 }
-						}
-					}
-					piece.Rotate();
-				}
-				piece.Mirror();
-			}
-		}
-
-		return false;
+		for (IND k=0; k<_index.Count(); k++)
+			SolveK(cntx, k);
 	}
 
+	/*void SolveOMP(Context& cntx) {
+		static Solution tsol;
+		#pragma omp threadprivate(tsol)
+
+		static Context tcntx{tsol};
+		#pragma omp threadprivate(tcntx)
+
+		#pragma omp parallel for
+		for (IND k=0; k<_index.Count(); k++)
+			SolveK(tcntx, k);
+	}*/
+
 protected:
+	void SolveK(Context& cntx, IND k) {
+		IND x = _index.Get(k);
+		Piece piece(x);
+		IND nm = 1;//mirs[x];
+		for (char mir=0; mir<nm; mir++) {
+			for (char rot=0; rot<rots[x]; rot++) {
+				for (IND n=0; n<piece_count; n++) {
+					if (piece.Fit(_field, _hole, n)) {
+						Figure fig(this, k);
+						piece.Mark(fig._field, _hole, n);
+						if (fig.IsDone(cntx))
+							break;
+						Field visit;
+						if (fig.Hole(visit, _hole.x, _hole.y))
+							fig.Solve(cntx);
+					}
+				}
+				piece.Rotate();
+			}
+			piece.Mirror();
+		}
+	}
+	
 	bool IsDone(Context& cntx) {
 		if (_index.Count() )
 			return false;
@@ -220,8 +231,6 @@ protected:
 			Hole(visit, x+1, y);
 	}
 };
-
-Solution sol;
 
 static void solve() {	
 	Elapsed el;
