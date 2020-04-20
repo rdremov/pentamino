@@ -7,6 +7,8 @@ typedef char IND;
 struct PT {IND x, y;};
 
 static const int pix = 15;
+static const bool mt = 0;
+static const bool mirror = 1;
 static const IND piece_count = 5;
 static const IND figure_count = 12;
 
@@ -56,6 +58,36 @@ static const Color colors[] = {
 	{0xe6, 0xbe, 0xff}, // lavender
 };
 
+class Sizes {
+	IND _w[figure_count];
+	IND _h[figure_count];
+
+public:
+	static Sizes const& Get() {
+		static Sizes sizes;
+		return sizes;
+	}
+
+	IND Width(IND k) const {return _w[k];}
+	IND Height(IND k) const {return _h[k];}
+
+protected:
+	Sizes() {
+		for (IND k=0; k<figure_count; k++) {
+			IND w = 0, h = 0;
+			for (IND n=0; n<piece_count; n++) {
+				auto pt = figures[k][n];
+				if (w < pt.x)
+					w = pt.x;
+				if (h < pt.y)
+					h = pt.y;
+			}
+			_w[k] = w + 1;
+			_h[k] = h + 1;
+		}
+	}
+};
+
 class Field {
 	static const IND _w = 10;
 	static const IND _h = 6;
@@ -70,22 +102,53 @@ public:
 	IND Width() const {return _w;}
 	IND Height() const {return _h;}
 
+	PT FirstHole() const {
+		for (IND y=0; y<_h; y++) {
+			for (IND x=0; x<_w; x++) {
+				if (IsEmpty(x, y)) {
+					return {x, y};
+				}
+			}
+		}
+		return {-1, -1};
+	}
+
 private:
 	IND _data[_h][_w];
 };
 
-class Piece {
+class HoleFinder {
 public:
-	Piece(IND k) : _w(0), _h(0), _color(k) {
-		memcpy(_data, figures[k], sizeof(_data));
-		for (IND n=0; n<piece_count; n++) {
-			auto pt = _data[n];
-			if (_w < pt.x)
-				_w = pt.x;
-			if (_h < pt.y)
-				_h = pt.y;
+	HoleFinder(Field const& f) : _field(f), _hole{} {}
+
+	bool Find(IND x, IND y) {
+		if (_field.IsOutside(x, y))
+			return false;
+		if (!_visit.IsEmpty(x, y))
+			return false;
+		if (_field.IsEmpty(x, y))
+		{
+			_hole = {x, y};
+			return true;
 		}
-		_w++, _h++;
+		_visit.Set(x, y, 0);
+		return Find(x, y-1) || Find(x-1, y) || Find(x, y+1) || Find(x+1, y);
+	}
+
+	PT Get() const {return _hole;}
+
+private:
+	Field _visit;
+	Field const& _field;
+	PT _hole;
+};
+
+class Figure {
+public:
+	Figure(IND k) : _color(k) {
+		memcpy(_data, figures[k], sizeof(_data));
+		_w = Sizes::Get().Width(k);
+		_h = Sizes::Get().Height(k);
 	}
 
 	void Rotate() {
@@ -104,11 +167,12 @@ public:
 			_data[n].x = -_data[n].x + _w - 1;
 	}
 
-	bool Fit(const Field& f, PT pt, IND index) const {
+	bool FitIn(Field const& f, PT pt, IND index) const {
 		IND dx = pt.x - _data[index].x;
 		IND dy = pt.y - _data[index].y;
 		for (IND n=0; n<piece_count; n++) {
-			IND x = _data[n].x + dx, y = _data[n].y + dy;
+			IND x = _data[n].x + dx;
+			IND y = _data[n].y + dy;
 			if (f.IsOutside(x, y))
 				return false;
 			if (!f.IsEmpty(x, y)) {
@@ -118,25 +182,20 @@ public:
 		return true;
 	}
 
-	void Mark(Field& f, PT pt, IND index) const {
+	void MarkIn(Field& f, PT pt, IND index) const {
 		IND dx = pt.x - _data[index].x;
 		IND dy = pt.y - _data[index].y;
-		for (IND n=0; n<piece_count; n++)
-			f.Set(_data[n].x + dx, _data[n].y + dy, _color);
+		for (IND n=0; n<piece_count; n++) {
+			IND x = _data[n].x + dx;
+			IND y = _data[n].y + dy;
+			f.Set(x, y, _color);
+		}
 	}
 
 private:
 	IND _w, _h;
 	IND _color;
 	PT _data[piece_count];
-};
-
-typedef std::vector<Field> Solution;
-Solution sol;
-
-struct Context {
-	Solution& sol;
-	int dbgcount;
 };
 
 class Index {
@@ -160,100 +219,131 @@ public:
 	IND Get(IND k) const {return _data[k];}
 };
 
-class Figure {
-	Field _field;
-	PT _hole;
-	Index _index;
+typedef std::vector<Field> Solution;
+Solution sol;
 
-public:
-	Figure() : _hole{} {}
-	Figure(const Figure* p, IND skip)
-		:	_field(p->_field),
-			_hole{},
-			_index(p->_index, skip) {
-	}
+struct Context {
+	Solution& sol;
+	int dbgcnt;
+};
+
+struct Frame {
+	Field field;
+	Index index;
+	PT hole;
+
+	Frame()
+		: hole{field.FirstHole()} {}
+
+	Frame(const Frame* p, IND skip)
+		:	field(p->field), index(p->index, skip), hole{} {}
+
+	Frame(const Field& f, const Index& i, IND skip)
+		:	field(f), index(i, skip), hole{} {}
 
 	void Solve(Context& cntx) {
-		cntx.dbgcount++;
-		for (IND k=0; k<_index.Count(); k++)
-			Solve1(cntx, k);
-	}
-
-	void SolveMT(Context& cntx) {
-		struct ThreadContext{
-			std::thread th;
-			Solution sol;
-			Context cntx;
-			ThreadContext() : cntx{sol} {}
-		};
-
-		ThreadContext tcs[figure_count];
-		//for (IND k=0; k<_index.Count(); k++)
-		//	tcs[k].th = thread(Solve1, k + 1);
-
-		for (auto& tc : tcs)
-			tc.th.join();
-	}
-
-protected:
-	void Solve1(Context& cntx, IND k) {
-		IND x = _index.Get(k);
-		Piece piece(x);
-		IND nm = 1;//mirs[x];
-		for (char mir=0; mir<nm; mir++) {
-			for (char rot=0; rot<rots[x]; rot++) {
-				for (IND n=0; n<piece_count; n++) {
-					if (piece.Fit(_field, _hole, n)) {
-						Figure fig(this, k);
-						piece.Mark(fig._field, _hole, n);
-						if (fig.IsDone(cntx))
-							break;
-						Field visit;
-						if (fig.Hole(visit, _hole.x, _hole.y))
-							fig.Solve(cntx);
+		cntx.dbgcnt++;
+		for (IND k=0; k<index.Count(); k++) {
+			IND x = index.Get(k);
+			Figure fig(x);
+			IND nm = mirror ? mirs[x] : 1;
+			for (char mir=0; mir<nm; mir++) {
+				for (char rot=0; rot<rots[x]; rot++) {
+					for (IND n=0; n<piece_count; n++) {
+						if (fig.FitIn(field, hole, n)) {
+							Frame fr(this, k);
+							fig.MarkIn(fr.field, hole, n);
+							if (fr.IsDone(cntx))
+								break;
+							HoleFinder hf(fr.field);
+							if (hf.Find(hole.x, hole.y)) {
+								fr.hole = hf.Get();
+								fr.Solve(cntx);
+							}
+						}
 					}
+					fig.Rotate();
 				}
-				piece.Rotate();
+				fig.Mirror();
 			}
-			piece.Mirror();
 		}
-	}
-	
-	bool IsDone(Context& cntx) {
-		if (_index.Count() )
-			return false;
-		cntx.sol.push_back(_field);
-		return true;
 	}
 
-	bool Hole(Field& visit, IND x, IND y) {
-		if (_field.IsOutside(x, y))
+	bool IsDone(Context& cntx) {
+		if (index.Count() )
 			return false;
-		if (!visit.IsEmpty(x, y))
-			return false;
-		if (_field.IsEmpty(x, y))
-		{
-			_hole = {x, y};
-			return true;
-		}
-		visit.Set(x, y, 0);
-		return
-			Hole(visit, x, y-1) ||
-			Hole(visit, x-1, y) ||
-			Hole(visit, x, y+1) ||
-			Hole(visit, x+1, y);
+		cntx.sol.push_back(field);
+		return true;
 	}
 };
 
-static void solve() {	
+struct TC {
+	Solution sol;
+	Context cntx;
+	TC() : cntx{sol} {}
+};
+
+TC tcs[figure_count];
+
+static void solve1(IND k) {
+	Context& cntx = tcs[k].cntx;
+	static const Frame fr0;
+
+	Figure fig(k);
+	IND nm = mirror ? mirs[k] : 1;
+	for (char mir=0; mir<nm; mir++) {
+		for (char rot=0; rot<rots[k]; rot++) {
+			for (IND n=0; n<piece_count; n++) {
+				if (fig.FitIn(fr0.field, fr0.hole, n)) {
+					Frame fr(fr0.field, fr0.index, k);
+					fig.MarkIn(fr.field, fr0.hole, n);
+					HoleFinder hf(fr.field);
+					if (hf.Find(fr0.hole.x, fr0.hole.y)) {
+						fr.hole = hf.Get();
+						fr.Solve(cntx);
+					}
+				}
+			}
+			fig.Rotate();
+		}
+		fig.Mirror();
+	}
+}
+
+static void solveMT() {
 	Elapsed el;
 	Context cntx{sol};
-	Figure fig;
-	fig.Solve(cntx);
+	{
+		std::thread ths[figure_count];
+		for (IND k=0; k<figure_count; k++)
+			ths[k] = std::thread(solve1, k);
+		for (auto& th : ths)
+			th.join();
+	}
+	for (auto& tc : tcs) {
+		cntx.dbgcnt += tc.cntx.dbgcnt;
+		cntx.sol.insert(cntx.sol.end(), tc.cntx.sol.begin(), tc.cntx.sol.end());
+	}
 	auto sec = el.sec();
-	printf("elepased = %g sec\n", sec);
-	printf("dbgcount = %d\n", cntx.dbgcount);
-	printf("solutions = %d\n", sol.size());
+	
+	printf("solveMT():\n");
+	printf("elapsed = %g sec\n", sec);
+	printf("dbgcnt = %d\n", cntx.dbgcnt);
+	printf("solutions = %d\n", (int)sol.size());
+}
+
+static void solve() {
+	Elapsed el;
+	Context cntx{sol};
+	{
+		Frame fr;
+		fr.Solve(cntx);
+	}
+	auto sec = el.sec();
+	printf("solve():\n");
+	printf("elapsed = %g sec\n", sec);
+	printf("dbgcnt = %d\n", cntx.dbgcnt);
+	printf("solutions = %d\n", (int)sol.size());
 }
 
 static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) {
@@ -270,7 +360,10 @@ static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) 
 }
 
 MainWnd::MainWnd() {
-	solve();
+	if (mt)
+		solveMT();
+	else
+		solve();
 	_brushes = new Brush[figure_count+1];
 	for (int i=0; i<figure_count; i++)
 		_brushes[i].Create(colors[i]);
