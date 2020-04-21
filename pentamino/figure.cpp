@@ -7,7 +7,7 @@ typedef char IND;
 struct PT {IND x, y;};
 
 static const int pix = 15;
-static const bool mirror = 1;
+static const bool mirror = 0;
 static const IND piece_count = 5;
 static const IND figure_count = 12;
 
@@ -280,29 +280,28 @@ protected:
 	}
 };
 
-struct TC {
-	Solution sol;
-	Context cntx;
-	TC() : cntx{sol} {}
-};
-
-TC tcs[figure_count];
-
-static void solve1(IND k) {
-	Context& cntx = tcs[k].cntx;
+static void solve1(Context* pCntx, IND k) {
 	Frame fr0;
-	fr0.Solve1(cntx, k);
+	fr0.Solve1(*pCntx, k);
 }
 
 static void solveMT() {
 	Elapsed el;
 	Context cntx{sol};
+
+	struct TC {
+		std::thread th;
+		Solution sol;
+		Context cntx;
+		TC() : cntx{sol} {}
+	};
+	TC tcs[figure_count];
+
 	{
-		std::thread ths[figure_count];
 		for (IND k=0; k<figure_count; k++)
-			ths[k] = std::thread(solve1, k);
-		for (auto& th : ths)
-			th.join();
+			tcs[k].th = std::thread(solve1, &tcs[k].cntx, k);
+		for (auto& tc : tcs)
+			tc.th.join();
 	}
 	for (auto& tc : tcs) {
 		cntx.dbgcnt += tc.cntx.dbgcnt;

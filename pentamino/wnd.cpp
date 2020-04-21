@@ -55,7 +55,7 @@ void Instance::Init(UINT idRes, int nCmdShow) {
 	#define MAX_LOADSTRING 256
 	CH title[MAX_LOADSTRING];
 	//LoadStringW(_h, IDS_APP_TITLE, title, MAX_LOADSTRING);
-	wcscpy(title, L"junk");
+	wcscpy_s(title, L"junk");
 
 	MyRegisterClass(_h);
 
