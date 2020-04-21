@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "figure.h"
 #include <thread>
 #include <vector>

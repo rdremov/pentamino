@@ -1,7 +1,7 @@
 #pragma once
 
-#include "gdi.h"
-#include "elapsed.h"
+#include "../ui/gdi.h"
+#include "../ui/elapsed.h"
 
 class MainWnd : public Wnd {
 public:
