@@ -1,14 +1,8 @@
 #include "figure.h"
+#include "../ui/elapsed.h"
 #include <thread>
-#include <vector>
 
-typedef char IND;
-struct PT {IND x, y;};
-
-static const int pix = 15;
-static const bool mirror = 0;
-static const IND piece_count = 5;
-static const IND figure_count = 12;
+static const bool mirror = 1;
 
 static const PT figures[figure_count][piece_count] = {
 	0,0, 2,0, 0,1, 1,1, 2,1, // c
@@ -31,29 +25,6 @@ static const char rots[figure_count] = {
 
 static const char mirs[figure_count] = {
 	1, 1, 2, 2, 1, 1, 2, 1, 2, 1, 2, 2
-};
-
-static const Color colors[] = {
-	{0x80, 0x00, 0x00}, // maroon
-	{0x9a, 0x63, 0x24}, // brown
-	{0x80, 0x80, 0x00}, // olive
-	{0x46, 0x99, 0x90}, // teal
-	{0x00, 0x00, 0x75}, // navy
-	{0xe6, 0x19, 0x48}, // red
-	{0xf5, 0x82, 0x31}, // orange
-	{0xff, 0xe1, 0x19}, // yellow
-	{0xbf, 0xef, 0x45}, // lime
-	{0x3c, 0xb4, 0x4b}, // green
-	{0x42, 0xd4, 0xf4}, // cyan
-	{0x43, 0x63, 0xd8}, // blue
-	{0x91, 0x1e, 0xb4}, // purple
-	{0xf0, 0x32, 0xe6}, // magenta
-	{0xa9, 0xa9, 0xa9}, // grey
-	{0xfa, 0xbe, 0xbe}, // pink
-	{0xff, 0xd8, 0xb1}, // apricot
-	{0xff, 0xfa, 0xc8}, // beige
-	{0xaa, 0xff, 0xc3}, // mint
-	{0xe6, 0xbe, 0xff}, // lavender
 };
 
 class Sizes {
@@ -86,38 +57,9 @@ protected:
 	}
 };
 
-class Field {
-	static const IND _w = 10;
-	static const IND _h = 6;
-
-public:
-	Field(IND v=figure_count) {memset(_data, v, sizeof(Field));}
-	Field(const Field& f) {memcpy(_data, f._data, sizeof(Field));}
-	bool IsOutside(IND x, IND y) const {return x < 0 || x >= _w || y < 0 || y >= _h;}
-	bool IsEmpty(IND x, IND y) const {return _data[y][x] == figure_count;}
-	void Set(IND x, IND y, IND v) {_data[y][x] = v;}
-	IND	Get(IND x, IND y) const {return _data[y][x];}
-	IND Width() const {return _w;}
-	IND Height() const {return _h;}
-
-	PT FirstHole() const {
-		for (IND y=0; y<_h; y++) {
-			for (IND x=0; x<_w; x++) {
-				if (IsEmpty(x, y)) {
-					return {x, y};
-				}
-			}
-		}
-		return {-1, -1};
-	}
-
-private:
-	IND _data[_h][_w];
-};
-
 class HoleFinder {
 public:
-	HoleFinder(Field const& f) : _field(f), _hole{} {}
+	HoleFinder(Field const& f) : _field(f), _hole{}, _visit(f.Width(), f.Height()) {}
 
 	bool Find(IND x, IND y) {
 		if (_field.IsOutside(x, y))
@@ -217,9 +159,6 @@ public:
 	IND Get(IND k) const {return _data[k];}
 };
 
-typedef std::vector<Field> Solution;
-Solution sol;
-
 struct Context {
 	Solution& sol;
 	int dbgcnt;
@@ -230,14 +169,14 @@ struct Frame {
 	Index index;
 	PT hole;
 
-	Frame()
-		: hole{field.FirstHole()} {}
+	Frame(const Field* p)
+		: field(*p), hole{p->FirstHole()} {}
 
 	Frame(const Frame* p, IND skip)
-		:	field(p->field), index(p->index, skip), hole{} {}
+		: field(p->field), index(p->index, skip), hole{} {}
 
 	Frame(const Field& f, const Index& i, IND skip)
-		:	field(f), index(i, skip), hole{} {}
+		: field(f), index(i, skip), hole{} {}
 
 	void Solve(Context& cntx) {
 		for (IND k=0; k<index.Count(); k++)
@@ -279,12 +218,12 @@ protected:
 	}
 };
 
-static void solve1(Context* pCntx, IND k) {
-	Frame fr0;
-	fr0.Solve1(*pCntx, k);
+static void solve1(Context* pCntx, IND k, const Field* pField) {
+	Frame fr(pField);
+	fr.Solve1(*pCntx, k);
 }
 
-static void solveMT() {
+void Field::SolveMT(Solution& sol) {
 	Elapsed el;
 	Context cntx{sol};
 
@@ -298,7 +237,7 @@ static void solveMT() {
 
 	{
 		for (IND k=0; k<figure_count; k++)
-			tcs[k].th = std::thread(solve1, &tcs[k].cntx, k);
+			tcs[k].th = std::thread(solve1, &tcs[k].cntx, k, this);
 		for (auto& tc : tcs)
 			tc.th.join();
 	}
@@ -308,79 +247,22 @@ static void solveMT() {
 	}
 	auto sec = el.sec();
 	
-	printf("solveMT():\n");
+	printf("Field::SolveMT():\n");
 	printf("elapsed = %g sec\n", sec);
 	printf("dbgcnt = %d\n", cntx.dbgcnt);
 	printf("solutions = %d\n", (int)sol.size());
 }
 
-static void solve() {
+void Field::Solve(Solution& sol) {
 	Elapsed el;
 	Context cntx{sol};
 	{
-		Frame fr;
+		Frame fr(this);
 		fr.Solve(cntx);
 	}
 	auto sec = el.sec();
-	printf("solve():\n");
+	printf("Field::Solve():\n");
 	printf("elapsed = %g sec\n", sec);
 	printf("dbgcnt = %d\n", cntx.dbgcnt);
 	printf("solutions = %d\n", (int)sol.size());
-}
-
-static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) {
-	int y = y0;
-	for (IND j=0; j<f.Height(); j++) {
-		int x = x0;
-		for (IND i=0; i<f.Width(); i++) {
-			Select sb(pDC, brushes[f.Get(i, j)]);
-			pDC->Rect(x, y, x + pix + 1, y + pix + 1);
-			x += pix;
-		}
-		y += pix;
-	}
-}
-
-MainWnd::MainWnd() {
-	solveMT();
-	sol.resize(0);
-	solve();
-	_brushes = new Brush[figure_count+1];
-	for (int i=0; i<figure_count; i++)
-		_brushes[i].Create(colors[i]);
-	_brushes[figure_count].Create(Color(0xff, 0xff, 0xff));
-}
-
-MainWnd::~MainWnd() {
-	delete[] _brushes;
-}
-
-bool MainWnd::OnPaint(DC* pDC) {
-	if (sol.empty())
-		return false;
-
-	int w, h;
-	GetSize(w, h);
-
-	int w1 = (1 + sol[0].Width()) * pix;
-	int h1 = (1 + sol[0].Height()) * pix;
-	int nx = w / w1;
-
-	Pen pen(1);
-	Select sp(pDC, pen);
-
-	int n = 0, y = pix;
-	bool done = false;
-	for (int j=0; !done && y<h; j++) {
-		int x = pix;
-		for (int i=0; !done && i<nx; i++) {
-			draw_field(sol[n], pDC, _brushes, x, y);
-			x += w1;
-			if (++n == sol.size())
-				done = true;
-		}
-		y += h1;
-	}
-
-	return false;
 }

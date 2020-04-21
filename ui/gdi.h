@@ -2,7 +2,6 @@
 #include "wnd.h"
 
 class Color {
-public:
 	union {
 		unsigned int _rgb;
 		struct {
@@ -11,12 +10,28 @@ public:
 			int _b:8;
 		};
 	};
+public:
+	Color() : _rgb(0) {}
 	Color(int r, int g, int b) : _r(r), _g(g), _b(b) {}
+	operator int() {return _rgb;}
+
+	static const Color black;
+	static const Color white;
+	static const Color red;
+	static const Color green;
+	static const Color blue;
+	static const Color grey;
+	static const Color ltgrey;
+	static const Color dkgrey;
 };
 
 class DC : public Handle<HDC> {
 public:
+	void MoveTo(int x, int y) {MoveToEx(_h, x, y, NULL);}
+	void LineTo(int x, int y) {::LineTo(_h, x, y);}
+	void Line(int x1, int y1, int x2, int y2) {MoveTo(x1, y1); LineTo(x2, y2);}
 	void Rect(int l, int t, int r, int b) {Rectangle(_h, l, t, r, b);}
+	void Text(int x, int y, const char* text) {TextOut(_h, x, y, text, lstrlen(text));}
 };
 
 class PaintDC : public DC {
@@ -33,30 +48,46 @@ public:
 	}
 };
 
-class Pen : public Handle<HPEN> {
+template<class T>
+class GdiHandle : public Handle<T> {
 public:
-	Pen(int width, int rgb = 0) {
-		_h = CreatePen(PS_SOLID, width, rgb);
-	}
-	~Pen() {
-		if (_h) {
-			DeleteObject(_h);
-			_h = nullptr;
+	~GdiHandle() {
+		T& h = this->_h;
+		if (h) {
+			DeleteObject(h);
+			h = nullptr;
 		}
 	}
 };
 
-class Brush : public Handle<HBRUSH> {
+class Pen : public GdiHandle<HPEN> {
+public:
+	Pen() {
+		_h = CreatePen(PS_NULL, 0, 0);
+	}
+	Pen(int width) {
+		_h = CreatePen(PS_SOLID, width, 0);
+	}
+	Pen(int width, Color color) {
+		_h = CreatePen(PS_SOLID, width, color);
+	}
+};
+
+class Brush : public GdiHandle<HBRUSH> {
 public:
 	Brush() {}
-	~Brush() {
-		if (_h) {
-			DeleteObject(_h);
-			_h = nullptr;
-		}
-	}
+	Brush(Color color) {Create(color);}
 	void Create(Color color) {
-		_h = CreateSolidBrush(color._rgb);
+		_h = CreateSolidBrush(color);
+	}
+};
+
+class Font : public GdiHandle<HFONT> {
+public:
+	Font() {}
+	Font(int height) {
+		LOGFONT lf{height};
+		_h = CreateFontIndirect(&lf);
 	}
 };
 

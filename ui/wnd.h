@@ -13,8 +13,6 @@ protected:
 	virtual ~Handle() {assert(_h == 0);}
 };
 
-typedef wchar_t CH;
-
 class Instance;
 class DC;
 
@@ -22,6 +20,7 @@ class Key {
 	int _vk;
 public:
 	Key(WPARAM vk) : _vk((int)vk) {}
+	operator int() const {return _vk;}
 };
 
 class Wnd : public Handle<HWND> {
@@ -36,11 +35,15 @@ public:
 		}
 	}
 	
-	void Create(Instance& inst, const CH* title);
+	void Create(Instance& inst, const char* title);
 	void Destroy() {DestroyWindow(_h);}
 	void Show(int nShow) {ShowWindow(_h, nShow);}
 	void Update() {UpdateWindow(_h);}
 	void Invalidate(bool eraseBk = true) {InvalidateRect(_h, nullptr, eraseBk);}
+	void Invalidate(int l, int t, int r, int b, bool eraseBk) {
+		RECT rect = {l, t, r, b};
+		InvalidateRect(_h, &rect, eraseBk);
+	}
 
 	void GetSize(int& w, int& h) const {
 		RECT r{};
@@ -49,9 +52,15 @@ public:
 		h = r.bottom - r.top;
 	}
 
-	virtual bool OnPaint(DC* pDC) {return true;}
-	virtual bool OnKeyDown(Key key) {return true;}
-	virtual bool OnKeyUp(Key key) {return true;}
+	static LRESULT CALLBACK Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+protected:
+	virtual bool OnPaint(DC* pDC) {return false;}
+	virtual bool OnKeyDown(Key key) {return false;}
+	virtual bool OnKeyUp(Key key) {return false;}
+	virtual bool OnLButtonDown(int x, int y) {return false;}
+	virtual bool OnLButtonUp(int x, int y) {return false;}
+	virtual bool OnMouseMove(int x, int y) {return false;}
 };
 
 class Instance : public Handle<HINSTANCE> {
@@ -64,4 +73,9 @@ public:
 	~Instance() {_h = nullptr;}
 	void Init(int nCmdShow);
 	int Run();
+};
+
+struct FileName {
+	char name[1024];
+	FileName(bool save);
 };
