@@ -28,25 +28,27 @@ static const Color colors[] = {
 	{0xe6, 0xbe, 0xff}, // lavender
 };
 
-static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0) {
+static void draw_field(Field const& f, DC* pDC, Brush* brushes, int x0, int y0, int size) {
 	int y = y0;
 	for (IND j=0; j<f.Height(); j++) {
 		int x = x0;
 		for (IND i=0; i<f.Width(); i++) {
-			Select sb(pDC, brushes[f.Get(i, j)]);
-			pDC->Rect(x, y, x + pix + 1, y + pix + 1);
-			x += pix;
+			auto c = f.Get(i, j);
+			Select sb(pDC, (c >= 0) ? brushes[c] : brushes[figure_count+1]);
+			pDC->Rect(x, y, x + size + 1, y + size + 1);
+			x += size;
 		}
-		y += pix;
+		y += size;
 	}
 }
 
 class MainWnd : public Wnd {
 public:
-	MainWnd() {
+	MainWnd() : _field(0, 0) {
 		for (int i=0; i<figure_count; i++)
 			_brushes[i].Create(colors[i]);
 		_brushes[figure_count].Create(Color::white);
+		_brushes[figure_count+1].Create(Color::black);
 	}
 	
 protected:
@@ -54,10 +56,12 @@ protected:
 		if (key == 'L') {
 			FileName fn(false);
 			if (*fn.name) {
-				_field.Load(fn.name);
 				_sol.resize(0);
+				_field.Load(fn.name);
+				Invalidate();
+				Update();
 				Elapsed el;
-				Context cntx{_sol};
+				Context cntx{_sol, true};
 				printf("SolveMT(mirror=%d):\n", cntx.mirror);
 				_field.SolveMT(cntx);
 				printf("  dbgcnt = %lld\n", cntx.dbgcnt);
@@ -70,7 +74,11 @@ protected:
 	}
 	
 	bool OnPaint(DC* pDC) override {
-		if (!_sol.empty()) {
+		Pen pen(1);
+		Select sp(pDC, pen);
+		if (_sol.empty()) {
+			draw_field(_field, pDC, _brushes, pix, pix, 2 * pix);
+		} else {
 			int w, h;
 			GetSize(w, h);
 
@@ -78,15 +86,12 @@ protected:
 			int h1 = (1 + _sol[0].Height()) * pix;
 			int nx = w / w1;
 
-			Pen pen(1);
-			Select sp(pDC, pen);
-
 			int n = 0, y = pix;
 			bool done = false;
 			for (int j=0; !done && y<h; j++) {
 				int x = pix;
 				for (int i=0; !done && i<nx; i++) {
-					draw_field(_sol[n], pDC, _brushes, x, y);
+					draw_field(_sol[n], pDC, _brushes, x, y, pix);
 					x += w1;
 					if (++n == _sol.size())
 						done = true;
@@ -98,7 +103,7 @@ protected:
 	}
 
 private:
-	Brush _brushes[figure_count+1];
+	Brush _brushes[figure_count+2];
 	Solution _sol;
 	Field _field;
 };
