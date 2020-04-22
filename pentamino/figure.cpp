@@ -1,8 +1,5 @@
 #include "figure.h"
-#include "../ui/elapsed.h"
 #include <thread>
-
-static const bool mirror = 1;
 
 static const PT figures[figure_count][piece_count] = {
 	0,0, 2,0, 0,1, 1,1, 2,1, // c
@@ -159,11 +156,6 @@ public:
 	IND Get(IND k) const {return _data[k];}
 };
 
-struct Context {
-	Solution& sol;
-	int dbgcnt;
-};
-
 struct Frame {
 	Field field;
 	Index index;
@@ -187,7 +179,7 @@ struct Frame {
 		cntx.dbgcnt++;
 		IND x = index.Get(k);
 		Figure fig(x);
-		IND nm = mirror ? mirs[x] : 1;
+		IND nm = cntx.mirror ? mirs[x] : 1;
 		for (char mir=0; mir<nm; mir++) {
 			for (char rot=0; rot<rots[x]; rot++) {
 				for (IND n=0; n<piece_count; n++) {
@@ -223,21 +215,19 @@ static void solve1(Context* pCntx, IND k, const Field* pField) {
 	fr.Solve1(*pCntx, k);
 }
 
-void Field::SolveMT(Solution& sol) {
-	Elapsed el;
-	Context cntx{sol};
-
+void Field::SolveMT(Context& cntx) {
 	struct TC {
 		std::thread th;
 		Solution sol;
 		Context cntx;
 		TC() : cntx{sol} {}
+		Context* Cntx(bool mirror) {cntx.mirror = mirror; return &cntx;}
 	};
 	TC tcs[figure_count];
 
 	{
 		for (IND k=0; k<figure_count; k++)
-			tcs[k].th = std::thread(solve1, &tcs[k].cntx, k, this);
+			tcs[k].th = std::thread(solve1, tcs[k].Cntx(cntx.mirror), k, this);
 		for (auto& tc : tcs)
 			tc.th.join();
 	}
@@ -245,24 +235,9 @@ void Field::SolveMT(Solution& sol) {
 		cntx.dbgcnt += tc.cntx.dbgcnt;
 		cntx.sol.insert(cntx.sol.end(), tc.cntx.sol.begin(), tc.cntx.sol.end());
 	}
-	auto sec = el.sec();
-	
-	printf("Field::SolveMT():\n");
-	printf("elapsed = %g sec\n", sec);
-	printf("dbgcnt = %d\n", cntx.dbgcnt);
-	printf("solutions = %d\n", (int)sol.size());
 }
 
-void Field::Solve(Solution& sol) {
-	Elapsed el;
-	Context cntx{sol};
-	{
-		Frame fr(this);
-		fr.Solve(cntx);
-	}
-	auto sec = el.sec();
-	printf("Field::Solve():\n");
-	printf("elapsed = %g sec\n", sec);
-	printf("dbgcnt = %d\n", cntx.dbgcnt);
-	printf("solutions = %d\n", (int)sol.size());
+void Field::Solve(Context& cntx) {
+	Frame fr(this);
+	fr.Solve(cntx);
 }

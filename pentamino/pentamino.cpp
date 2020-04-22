@@ -1,6 +1,7 @@
 #include "figure.h"
 #include "../ui/console.h"
 #include "../ui/gdi.h"
+#include "../ui/elapsed.h"
 
 static const int pix = 15;
 
@@ -55,8 +56,13 @@ protected:
 			if (*fn.name) {
 				_field.Load(fn.name);
 				_sol.resize(0);
-				_field.SolveMT(_sol);
-				//_field.Solve(_sol);
+				Elapsed el;
+				Context cntx{_sol};
+				printf("SolveMT(mirror=%d):\n", cntx.mirror);
+				_field.SolveMT(cntx);
+				printf("  dbgcnt = %d\n", cntx.dbgcnt);
+				printf("  elapsed = %g sec\n", el.sec());
+				printf("  solutions = %d\n", (int)_sol.size());
 				Invalidate();
 			}
 		}

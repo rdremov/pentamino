@@ -12,6 +12,12 @@ static const IND total_count = figure_count * piece_count;
 
 class Solution;
 
+struct Context {
+	Solution& sol;
+	bool mirror;
+	int dbgcnt;
+};
+
 class Field {
 public:
 	static const IND N = 22;
@@ -121,8 +127,8 @@ public:
 		return cnt;
 	}
 
-	void Solve(Solution& sol);
-	void SolveMT(Solution& sol);
+	void Solve(Context& cntx);
+	void SolveMT(Context& cntx);
 
 private:
 	IND _data[N][N];
