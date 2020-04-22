@@ -60,7 +60,7 @@ protected:
 				Context cntx{_sol};
 				printf("SolveMT(mirror=%d):\n", cntx.mirror);
 				_field.SolveMT(cntx);
-				printf("  dbgcnt = %d\n", cntx.dbgcnt);
+				printf("  dbgcnt = %lld\n", cntx.dbgcnt);
 				printf("  elapsed = %g sec\n", el.sec());
 				printf("  solutions = %d\n", (int)_sol.size());
 				Invalidate();

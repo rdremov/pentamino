@@ -15,7 +15,7 @@ class Solution;
 struct Context {
 	Solution& sol;
 	bool mirror;
-	int dbgcnt;
+	long long dbgcnt;
 };
 
 class Field {
