@@ -187,6 +187,6 @@ private:
 int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
 	BuildWnd wnd;
 	Instance inst(hInst, &wnd);
-	inst.Init(nCmdShow);
+	inst.Init("Pentamino", nCmdShow);
 	return inst.Run();
 }

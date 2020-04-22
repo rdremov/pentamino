@@ -71,7 +71,7 @@ public:
 		_pWnd = pWnd;
 	}
 	~Instance() {_h = nullptr;}
-	void Init(int nCmdShow);
+	void Init(const char* title, int nCmdShow);
 	int Run();
 };
 

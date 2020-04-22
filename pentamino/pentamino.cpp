@@ -47,8 +47,8 @@ public:
 	MainWnd() : _field(0, 0) {
 		for (int i=0; i<figure_count; i++)
 			_brushes[i].Create(colors[i]);
-		_brushes[figure_count].Create(Color::white);
-		_brushes[figure_count+1].Create(Color::black);
+		_brushes[figure_count].Create(Color::grey);
+		_brushes[figure_count+1].Create(Color::white);
 	}
 	
 protected:
@@ -62,7 +62,7 @@ protected:
 				Update();
 				Elapsed el;
 				Context cntx{_sol, true};
-				printf("SolveMT(mirror=%d):\n", cntx.mirror);
+				printf("Solving with mirror = %d:\n", cntx.mirror);
 				_field.SolveMT(cntx);
 				printf("  dbgcnt = %lld\n", cntx.dbgcnt);
 				printf("  elapsed = %g sec\n", el.sec());
@@ -112,6 +112,6 @@ int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
 	Console cons;
 	MainWnd wnd;
 	Instance inst(hInst, &wnd);
-	inst.Init(nCmdShow);
+	inst.Init("Pentabuild", nCmdShow);
 	return inst.Run();
 }

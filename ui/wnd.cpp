@@ -58,10 +58,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	return RegisterClassEx(&wcex);
 }
 
-void Instance::Init(int nCmdShow) {
+void Instance::Init(const char* title, int nCmdShow) {
 	MyRegisterClass(_h);
 
-	_pWnd->Create(*this, "junk");
+	_pWnd->Create(*this, title);
 	_pWnd->Show(nCmdShow);
 	_pWnd->Update();
 }
