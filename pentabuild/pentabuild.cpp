@@ -27,6 +27,8 @@ protected:
 	bool OnKeyDown(Key key) override {
 		if (key == 'S')
 			Save();
+		else if (key == 'L')
+			Load();
 		return true;
 	}
 
@@ -172,6 +174,15 @@ protected:
 			FileName fn(true);
 			if (*fn.name)
 				_data.Save(fn.name, l, t, r, b);
+		}
+	}
+
+	void Load() {
+		FileName fn(false);
+		if (*fn.name) {
+			_data = Field();
+			_data.Load(fn.name);
+			_data.ResetSize();
 		}
 	}
 

@@ -90,6 +90,7 @@ public:
 
 	void Set(IND x, IND y, IND v) {_data[y][x] = v;}
 	IND Get(IND x, IND y) const {return _data[y][x];}
+	void ResetSize() {_w = _h = 0;}
 	IND Width() const {return _w;}
 	IND Height() const {return _h;}
 

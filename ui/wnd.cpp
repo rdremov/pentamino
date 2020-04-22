@@ -42,8 +42,7 @@ LRESULT CALLBACK Wnd::Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 	return 0;
 }
 
-ATOM MyRegisterClass(HINSTANCE hInstance)
-{
+void MyRegisterClass(HINSTANCE hInstance) {
 	WNDCLASSEX wcex{};
 	wcex.cbSize = sizeof(WNDCLASSEX);
 	wcex.style          = CS_HREDRAW | CS_VREDRAW;
@@ -55,7 +54,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	//wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_PENTAMINO);
 	wcex.lpszClassName  = "rvd";
 	//wcex.hIconSm        = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SMALL));
-	return RegisterClassEx(&wcex);
+	auto ret = RegisterClassEx(&wcex);
 }
 
 void Instance::Init(const char* title, int nCmdShow) {
@@ -82,8 +81,7 @@ int Instance::Run() {
 }
 
 #include <commdlg.h>
-FileName::FileName(bool save)
-{
+FileName::FileName(bool save) {
 	memset(name, 0, sizeof(name));
 	char filter[] = "Pentamino file\0*.pnt\0";
 	OPENFILENAME ofn{};
