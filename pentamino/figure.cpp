@@ -69,6 +69,8 @@ public:
 			return true;
 		}
 		_visit.Set(x, y, 0);
+		if (_visit.Width() - x < _visit.Height() - y)
+			return Find(x-1, y) || Find(x, y-1) || Find(x+1, y) || Find(x, y+1);
 		return Find(x, y-1) || Find(x-1, y) || Find(x, y+1) || Find(x+1, y);
 	}
 
