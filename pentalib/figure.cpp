@@ -91,10 +91,7 @@ public:
 	}
 
 	void Rotate() {
-		IND temp = _w;
-		_w = _h;
-		_h = temp;
-
+		IND temp = _w, _w = _h, _h = temp;
 		for (IND n=0; n<piece_count; n++) {
 			auto& pt = _data[n];
 			temp = pt.x, pt.x = -pt.y + _w, pt.y = temp;

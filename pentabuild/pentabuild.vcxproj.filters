@@ -7,7 +7,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pentabuild.cpp">
+    <ClCompile Include="build.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
