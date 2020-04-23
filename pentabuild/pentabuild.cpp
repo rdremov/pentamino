@@ -1,5 +1,5 @@
 #include "../ui/gdi.h"
-#include "../pentamino/figure.h"
+#include "../pentalib/figure.h"
 
 class BuildWnd : public Wnd {
 	static const int pix = 30;

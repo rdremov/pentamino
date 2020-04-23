@@ -1,4 +1,4 @@
-#include "figure.h"
+#include "../pentalib/figure.h"
 #include "../ui/console.h"
 #include "../ui/gdi.h"
 #include "../ui/elapsed.h"

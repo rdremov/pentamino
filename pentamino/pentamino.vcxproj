@@ -175,13 +175,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="figure.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="figure.cpp" />
     <ClCompile Include="pentamino.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\pentalib\pentalib.vcxproj">
+      <Project>{d339f5af-7fed-4b74-8bf4-71dc9132a836}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ui\ui.vcxproj">
       <Project>{ef443d24-f1cd-4dc2-9c20-fd799f7fc0fa}</Project>
     </ProjectReference>
